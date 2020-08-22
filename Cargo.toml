@@ -1,8 +1,15 @@
 [package]
 name = "w8"
-version = "0.1.0"
+description = "unix utility for waiting on ports, http status, and more"
+categories = ["command-line-utilities"]
 authors = ["Jimmy Zelinskie <jimmy.zelinskie+git@gmail.com>"]
+version = "0.1.0"
 edition = "2018"
+license = "Apache-2.0"
+readme = "README.md"
+homepage = "https://github.com/jzelinskie/w8"
+repository = "https://github.com/jzelinskie/w8"
+
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

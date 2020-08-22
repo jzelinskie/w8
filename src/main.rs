@@ -1,6 +1,5 @@
 use tokio::net::TcpStream;
 
-use futures::future::Either;
 use gumdrop::Options;
 use url::Url;
 
@@ -24,29 +23,37 @@ async fn main() -> anyhow::Result<()> {
     let opts = W8Options::parse_args_default_or_exit();
     println!("{:#?}", opts);
 
-    use std::net::ToSocketAddrs;
-
     use futures::stream::futures_unordered::FuturesUnordered;
     let mut futs = FuturesUnordered::new();
 
+    use std::net::ToSocketAddrs;
     let tcp_futs = opts
         .tcp
         .iter()
-        .flat_map(|s| s.to_socket_addrs().expect("valid socket addr"))
-        .map(|socket_addr| Either::Left(wait_for_socket(socket_addr)));
+        .flat_map(|s| s.to_socket_addrs().expect("valid socket addr")) // This does IPv4 AND IPv6, when it should not.
+        .map(|s| {
+            println!("{:#?}", s);
+            s
+        })
+        .map(|socket_addr| tokio::spawn(wait_for_socket(socket_addr)));
 
     let http_futs = opts
         .http
         .iter()
         .map(|x| Url::parse(x).expect("valid HTTP URL"))
-        .map(|url| Either::Right(wait_for_http(url)));
+        .map(|s| {
+            println!("{:#?}", s);
+            s
+        })
+        .map(|url| tokio::spawn(wait_for_http(url)));
 
     futs.extend(tcp_futs);
     futs.extend(http_futs);
 
     use futures::stream::StreamExt;
-    while let Some(result) = futs.next().await {
-        result
+
+    while let Some(_) = futs.next().await {
+        println!("did it");
     }
 
     Ok(())
@@ -66,6 +73,7 @@ async fn wait_for_http(url: Url) {
         match reqwest::get(url.as_str()).await {
             Ok(response) => {
                 if response.status().is_success() {
+                    println!("success");
                     return;
                 } else {
                     continue;

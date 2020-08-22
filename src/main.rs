@@ -27,31 +27,29 @@ async fn main() -> anyhow::Result<()> {
     let mut futs = FuturesUnordered::new();
 
     use std::net::ToSocketAddrs;
-    let tcp_futs = opts
-        .tcp
-        .iter()
-        .flat_map(|s| s.to_socket_addrs().expect("valid socket addr")) // This does IPv4 AND IPv6, when it should not.
-        .map(|s| {
-            println!("{:#?}", s);
-            s
-        })
-        .map(|socket_addr| tokio::spawn(wait_for_socket(socket_addr)));
+    futs.extend(
+        opts.tcp
+            .iter()
+            .flat_map(|s| s.to_socket_addrs().expect("valid socket addr")) // This does IPv4 AND IPv6, when it should not.
+            .map(|s| {
+                println!("{:#?}", s);
+                s
+            })
+            .map(|socket_addr| tokio::spawn(wait_for_socket(socket_addr))),
+    );
 
-    let http_futs = opts
-        .http
-        .iter()
-        .map(|x| Url::parse(x).expect("valid HTTP URL"))
-        .map(|s| {
-            println!("{:#?}", s);
-            s
-        })
-        .map(|url| tokio::spawn(wait_for_http(url)));
-
-    futs.extend(tcp_futs);
-    futs.extend(http_futs);
+    futs.extend(
+        opts.http
+            .iter()
+            .map(|x| Url::parse(x).expect("valid HTTP URL"))
+            .map(|s| {
+                println!("{:#?}", s);
+                s
+            })
+            .map(|url| tokio::spawn(wait_for_http(url))),
+    );
 
     use futures::stream::StreamExt;
-
     while let Some(_) = futs.next().await {
         println!("did it");
     }

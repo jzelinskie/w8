@@ -1,5 +1,6 @@
 use tokio::net::TcpStream;
 
+use futures::future::Either;
 use gumdrop::Options;
 use url::Url;
 
@@ -26,26 +27,25 @@ async fn main() -> anyhow::Result<()> {
     use std::net::ToSocketAddrs;
 
     use futures::stream::futures_unordered::FuturesUnordered;
-    let mut tcp_futs: FuturesUnordered<_> = opts
+    let mut futs = FuturesUnordered::new();
+
+    let tcp_futs = opts
         .tcp
         .iter()
         .flat_map(|s| s.to_socket_addrs().expect("valid socket addr"))
-        .map(|socket_addr| wait_for_socket(socket_addr.clone()))
-        .collect();
+        .map(|socket_addr| Either::Left(wait_for_socket(socket_addr)));
 
-    use futures::stream::StreamExt;
-    while let Some(result) = tcp_futs.next().await {
-        result
-    }
-
-    let mut http_futs: FuturesUnordered<_> = opts
+    let http_futs = opts
         .http
         .iter()
         .map(|x| Url::parse(x).expect("valid HTTP URL"))
-        .map(|url| wait_for_http(url))
-        .collect();
+        .map(|url| Either::Right(wait_for_http(url)));
 
-    while let Some(result) = http_futs.next().await {
+    futs.extend(tcp_futs);
+    futs.extend(http_futs);
+
+    use futures::stream::StreamExt;
+    while let Some(result) = futs.next().await {
         result
     }
 
